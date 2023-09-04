@@ -1,0 +1,152 @@
+mkdir content-management-tool
+cd content-management-tool
+npm init -y
+npm install express sqlite3
+// server.js
+const express = require('express');
+const sqlite3 = require('sqlite3');
+const bodyParser = require('body-parser');
+
+const app = express();
+const port = process.env.PORT || 3000;
+const db = new sqlite3.Database('blog.db');
+
+app.use(bodyParser.json());
+
+// Create a table for storing blog posts
+db.run(`
+  CREATE TABLE IF NOT EXISTS blog_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT,
+    content TEXT,
+    image_url TEXT,
+    video_url TEXT
+  )
+`);
+
+// Create a new blog post
+app.post('/api/blog', (req, res) => {
+  const { title, content, image_url, video_url } = req.body;
+
+  db.run(
+    'INSERT INTO blog_posts (title, content, image_url, video_url) VALUES (?, ?, ?, ?)',
+    [title, content, image_url, video_url],
+    function (err) {
+      if (err) {
+        console.error(err.message);
+        res.status(500).json({ error: 'Failed to create a new blog post' });
+        return;
+      }
+      res.json({ message: 'Blog post created successfully', id: this.lastID });
+    }
+  );
+});
+
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Content Management Tool</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Create a Blog Post</h1>
+  <form id="blog-form">
+    <label for="title">Title:</label>
+    <input type="text" id="title" required>
+    <br>
+    <label for="content">Content:</label>
+    <textarea id="content" required></textarea>
+    <br>
+    <label for="image">Image URL:</label>
+    <input type="text" id="image">
+    <br>
+    <label for="video">Video URL:</label>
+    <input type="text" id="video">
+    <br>
+    <button type="submit">Create Post</button>
+  </form>
+  <div id="response"></div>
+  <script src="main.js"></script>
+</body>
+</html>
+/* public/styles.css */
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 20px;
+}
+
+form {
+  margin-bottom: 20px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+input[type="text"],
+textarea {
+  width: 100%;
+  padding: 5px;
+  margin-bottom: 10px;
+}
+
+button {
+  background-color: #0074d9;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+#response {
+  font-weight: bold;
+  color: green;
+}
+// public/main.js
+document.addEventListener('DOMContentLoaded', () => {
+  const blogForm = document.getElementById('blog-form');
+  const responseDiv = document.getElementById('response');
+
+  blogForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const title = document.getElementById('title').value;
+    const content = document.getElementById('content').value;
+    const image_url = document.getElementById('image').value;
+    const video_url = document.getElementById('video').value;
+
+    fetch('/api/blog', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title,
+        content,
+        image_url,
+        video_url,
+      }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        responseDiv.textContent = data.message;
+        blogForm.reset();
+      })
+      .catch((error) => {
+        responseDiv.textContent = 'An error occurred. Please try again.';
+        console.error('Error:', error);
+      });
+  });
+});
+node server.js
